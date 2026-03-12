@@ -15,12 +15,36 @@ import io
 import tempfile
 import re
 import os
+import json
+import base64
 from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
+
+# --- Função para garantir Chrome para Kaleido ---
+def ensure_chrome_available():
+    """Tenta garantir que o Chrome está disponível para Kaleido. Retorna True se OK, False se falhar."""
+    try:
+        import kaleido
+        # Testa se Chrome já está disponível
+        test_fig = go.Figure(data=go.Bar(y=[1]))
+        test_fig.to_image(format='png', width=100, height=100)
+        return True
+    except Exception:
+        # Chrome não está disponível, tenta instalar
+        try:
+            import kaleido
+            kaleido.get_chrome_sync()
+            return True
+        except Exception:
+            return False
 
 # --- Configuração Geral ---
 st.set_page_config(page_title="Scout Report", layout="wide")
 
-# --- Modelo de Dados: Premier League Scouting ---
 SCOUTING_MODEL = {
     "Goleiro": {
         "Físicas": ["Explosão muscular", "Agilidade lateral", "Força de tronco", "Resistência"],
@@ -38,7 +62,7 @@ SCOUTING_MODEL = {
         "Físicas": ["Força física", "Estatura", "Resistência anaeróbica", "Mobilidade lateral"],
         "Técnicas": ["Desarmes", "Saída de bola", "Cabeceio", "Controle corporal"],
         "Táticas": ["Organização da linha", "Cobertura", "Posicionamento", "Gestão da profundidade"],
-        "Cognitivas": ["Tomada de decisão", "Liderança", "Frieza", "Consistência"]
+        "Cognitivas": ["Tomada de decisão", "Liderança", "Sangue frio", "Consistência"]
     },
     "Volantes": {
         "Físicas": ["Resistência aeróbica", "Força", "Agilidade", "Recuperação rápida"],
@@ -46,7 +70,7 @@ SCOUTING_MODEL = {
         "Táticas": ["Equilíbrio defesa-construção", "Cobertura", "Gestão de ritmo", "Posicionamento"],
         "Cognitivas": ["Leitura de jogo", "Disciplina", "Foco constante", "Liderança silenciosa"]
     },
-    "Médios": {
+    "Médio": {
         "Físicas": ["Resistência", "Mobilidade", "Força moderada", "Coordenação"],
         "Técnicas": ["Passe vertical", "Controle orientado", "Finalização média distância", "Visão periférica"],
         "Táticas": ["Criação de linhas de passe", "Gestão de ritmo ofensivo", "Apoio defensivo", "Ocupação de entrelinhas"],
@@ -56,7 +80,7 @@ SCOUTING_MODEL = {
         "Físicas": ["Explosão curta", "Resistência", "Coordenação fina", "Velocidade de reação"],
         "Técnicas": ["Passe de ruptura", "Finalização", "Drible curto", "Controle sob pressão"],
         "Táticas": ["Ocupação de entrelinhas", "Superioridade numérica", "Movimentação ofensiva", "Ajuste ao sistema"],
-        "Cognitivas": ["Criatividade", "Decisão no último terço", "Frieza", "Improviso"]
+        "Cognitivas": ["Criatividade", "Decisão no último terço", "Sangue frio", "Improviso"]
     },
     "Extremos": {
         "Físicas": ["Velocidade máxima", "Resistência", "Explosão", "Força em duelos"],
@@ -64,11 +88,11 @@ SCOUTING_MODEL = {
         "Táticas": ["Amplitude ofensiva", "Movimentação diagonal", "Pressão alta", "Ajuste ao sistema"],
         "Cognitivas": ["Coragem", "Criatividade", "Decisão rápida", "Resiliência"]
     },
-    "Centroavantes": {
+    "Centroavante": {
         "Físicas": ["Força física", "Impulsão", "Resistência anaeróbica", "Explosão"],
         "Técnicas": ["Finalização variada", "Controle orientado", "Passe de apoio", "Movimentação de desmarque"],
         "Táticas": ["Ataque à profundidade", "Fixação de zagueiros", "Movimentação ofensiva", "Pressão alta"],
-        "Cognitivas": ["Frieza", "Resiliência", "Inteligência espacial", "Liderança ofensiva"]
+        "Cognitivas": ["Sangue frio", "Resiliência", "Inteligência espacial", "Liderança ofensiva"]
     }
 }
 
@@ -142,9 +166,9 @@ def puxar_dados_sofascore_selenium(url):
 def main():
     # ... (sidebar code remains same) ...
     st.sidebar.header("🎨 Design e Config")
-    bg_color = st.sidebar.color_picker("Cor de Fundo", "#FFFFFF")
-    highlight_color = st.sidebar.color_picker("Cor Principal", "#360568") # Roxo Premier League
-    text_color = st.sidebar.color_picker("Cor do Texto", "#3c3c3c")
+    bg_color = st.sidebar.color_picker("Cor de Fundo", st.session_state.get('bg_color', "#FFFFFF"), key='bg_color')
+    highlight_color = st.sidebar.color_picker("Cor Principal", st.session_state.get('highlight_color', "#360568"), key='highlight_color') # Roxo Premier League
+    text_color = st.sidebar.color_picker("Cor do Texto", st.session_state.get('text_color', "#3c3c3c"), key='text_color')
     profile_pic = st.sidebar.file_uploader("📸 Foto do Jogador", type=['png', 'jpg', 'jpeg'])
     heatmap_file = st.sidebar.file_uploader("🔥 Mapa de Calor", type=['png', 'jpg', 'jpeg'])
     
@@ -158,31 +182,85 @@ def main():
     # Linha 1
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        name = st.text_input("Nome", value="Ex: Cole Palmer")
+        name = st.text_input("Nome", value=st.session_state.get('name', "Ex: Cole Palmer"), key='name')
     with c2:
-        position = st.selectbox("Posição", list(SCOUTING_MODEL.keys()))
+        positions = list(SCOUTING_MODEL.keys())
+        default_pos = st.session_state.get('position', positions[0])
+        pos_index = positions.index(default_pos) if default_pos in positions else 0
+        position = st.selectbox("Posição", positions, index=pos_index, key='position')
     with c3:
-        club = st.text_input("Clube", value="Chelsea")
+        club = st.text_input("Clube", value=st.session_state.get('club', "Chelsea"), key='club')
     with c4:
-        company = st.text_input("Empresa", value="Gestifute")
+        company = st.text_input("Empresa", value=st.session_state.get('company', "Gestifute"), key='company')
 
     # Linha 2
     c5, c6, c7, c8 = st.columns(4)
     with c5:
-        dob = st.text_input("Data Nascimento", value="06/05/2002")
+        dob = st.text_input("Data Nascimento", value=st.session_state.get('dob', "06/05/2002"), key='dob')
     with c6:
-        age = st.number_input("Idade", 15, 45, 21)
+        age = st.number_input("Idade", 15, 45, st.session_state.get('age', 21), key='age')
     with c7:
-        height = st.text_input("Altura", value="1.89m")
+        height = st.text_input("Altura", value=st.session_state.get('height', "1.89m"), key='height')
     with c8:
-        foot = st.selectbox("Pé Dominante", ["Esquerdo", "Destro", "Ambidestro"])
+        foot = st.selectbox("Pé Dominante", ["Esquerdo", "Destro", "Ambidestro"], index=["Esquerdo","Destro","Ambidestro"].index(st.session_state.get('foot','Esquerdo')), key='foot')
+
+    # sessão de salvar/carregar para persistir trabalho
+    st.sidebar.header("💾 Sessão")
+    
+    # Verificar status do Chrome para geração de PDF
+    st.sidebar.header("🔧 Status do Sistema")
+    if ensure_chrome_available():
+        st.sidebar.success("✅ Chrome disponível - PDFs com gráficos funcionarão normalmente")
+    else:
+        st.sidebar.warning("⚠️ Chrome não detectado - PDFs serão gerados sem gráficos. Clique no botão abaixo para instalar.")
+        if st.sidebar.button("Instalar Chrome para Kaleido"):
+            with st.spinner("Instalando Chrome..."):
+                if ensure_chrome_available():
+                    st.sidebar.success("✅ Chrome instalado com sucesso! Recarregue a página.")
+                else:
+                    st.sidebar.error("❌ Não foi possível instalar Chrome automaticamente. Tente manualmente: `plotly_get_chrome`")
+    
+    uploaded_session = st.sidebar.file_uploader("Carregar sessão", type=["json"])
+    if uploaded_session is not None:
+        try:
+            data = json.load(uploaded_session)
+            for k, v in data.items():
+                if k == 'df_stats':
+                    st.session_state.df_stats = pd.DataFrame(v)
+                else:
+                    st.session_state[k] = v
+            st.sidebar.success("Sessão carregada!")
+            st.experimental_rerun()
+        except Exception as e:
+            st.sidebar.error(f"Erro ao carregar sessão: {e}")
+
+    if st.sidebar.button("Salvar sessão"):
+        session_data = {}
+        keys = [
+            'name','position','club','company','dob','age','height','foot',
+            'nationality','market_val','analysis_text',
+            'highlight_color','text_color','bg_color'
+        ]
+        for k in keys:
+            if k in st.session_state:
+                session_data[k] = st.session_state[k]
+        pos = session_data.get('position')
+        if pos and pos in SCOUTING_MODEL:
+            for cat, attrs in SCOUTING_MODEL[pos].items():
+                for attr in attrs:
+                    key = f"{pos}_{cat}_{attr}"
+                    session_data[key] = st.session_state.get(key, 0)
+        if 'df_stats' in st.session_state:
+            session_data['df_stats'] = st.session_state.df_stats.to_dict('records')
+        json_str = json.dumps(session_data, ensure_ascii=False)
+        st.sidebar.download_button("Download JSON", json_str, "session.json", "application/json")
 
     # Linha 3
     c9, c10, c11, c12 = st.columns(4)
     with c9:
-        nationality = st.text_input("Nacionalidade", value="Inglaterra")
+        nationality = st.text_input("Nacionalidade", value=st.session_state.get('nationality', "Inglaterra"), key='nationality')
     with c10:
-        market_val = st.text_input("Valor", value="€ 55.00m")
+        market_val = st.text_input("Valor", value=st.session_state.get('market_val', "€ 55.00m"), key='market_val')
     with c11:
         st.empty()
     with c12:
@@ -196,7 +274,7 @@ def main():
     category_scores = {} # Média por categoria
     all_attributes_data = {} # Todos os valores para o relatório
 
-    tabs = st.tabs(categories.keys())
+    tabs = st.tabs(list(categories.keys()))
     
     for i, (cat_name, attributes) in enumerate(categories.items()):
         with tabs[i]:
@@ -265,7 +343,7 @@ def main():
     })
     
     # Exibir tabela centralizada ou full width
-    st.dataframe(summary_df, hide_index=True, use_container_width=True)
+    st.dataframe(summary_df, hide_index=True, width='stretch')
     
     with st.expander("Ver notas individuais"):
         st.json(all_attributes_data)
@@ -324,7 +402,7 @@ def main():
     )
 
     # Exibir gráfico ocupando toda a largura
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 
     # --- Botão para baixar gráfico como JPEG ---
     col_download, col_spacer = st.columns([1, 3])
@@ -354,7 +432,7 @@ def main():
     # --- Análise Descritiva ---
     st.divider()
     st.subheader("📝 Análise Descritiva")
-    analysis_text = st.text_area("Observações Táticas e Técnicas", height=150, placeholder="Escreva aqui a análise detalhada do comportamento do jogador...")
+    analysis_text = st.text_area("Observações Táticas e Técnicas", height=150, placeholder="Escreva aqui a análise detalhada do comportamento do jogador...", value=st.session_state.get('analysis_text',''), key='analysis_text')
 
     # --- Estatísticas da Temporada ---
     st.divider()
@@ -371,7 +449,7 @@ def main():
     edited_stats = st.data_editor(
         st.session_state.df_stats,
         num_rows="dynamic",
-        use_container_width=True,
+        width='stretch',
         column_config={
             "Campeonato": st.column_config.TextColumn("Competição", width="medium"),
             "Jogos/Titular": st.column_config.TextColumn("J / Tit", help="Ex: 34 / 30", width="small"),
@@ -391,9 +469,29 @@ def main():
             tmp_img = None
             tmp_profile = None
             tmp_heatmap = None
+            img_bytes = None
+            chrome_failed = False
+            
             try:
-                # Gerar imagem do gráfico
-                img_bytes = fig.to_image(format="png", width=700, height=500, scale=2)
+                # Gerar imagem do gráfico (pode falhar se Chrome não estiver disponível)
+                try:
+                    img_bytes = fig.to_image(format="png", width=700, height=500, scale=2)
+                except Exception as img_err:
+                    msg = str(img_err).lower()
+                    if 'kaleido' in msg or 'chrome' in msg:
+                        # Tenta garantir Chrome
+                        st.warning("Tentando instalar Chrome para gerar imagem do gráfico...")
+                        if ensure_chrome_available():
+                            try:
+                                img_bytes = fig.to_image(format="png", width=700, height=500, scale=2)
+                            except Exception:
+                                chrome_failed = True
+                                st.warning("Não foi possível gerar a imagem do gráfico, mas o PDF será criado com os dados em texto.")
+                        else:
+                            chrome_failed = True
+                            st.warning("Chrome não disponível. O PDF será criado sem a imagem do gráfico radar, mas com todos os dados em texto.")
+                    else:
+                        raise
                 
                 buffer = io.BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=A4,
@@ -514,14 +612,19 @@ def main():
                 story.append(Spacer(1, 0.5*cm))
                 
                 # === GRÁFICO RADAR COM LEGENDA MAIOR ===
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f:
-                    f.write(img_bytes)
-                    tmp_img = f.name
+                if img_bytes:
+                    # Imagem do gráfico está disponível
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f:
+                        f.write(img_bytes)
+                        tmp_img = f.name
+                    
+                    chart_img = Image(tmp_img, width=16*cm, height=12*cm)
+                    story.append(chart_img)
+                else:
+                    # Chrome não estava disponível, exibe apenas texto informando
+                    story.append(Paragraph("<i>(Gráfico radar não disponível - Chrome não foi detectado)</i>", normal_style))
                 
-                chart_img = Image(tmp_img, width=16*cm, height=12*cm)
-                story.append(chart_img)
-                
-                # Legenda do gráfico com espaço maior
+                # Legenda do gráfico com espaço maior (sempre mostrada)
                 legend_data = [[Paragraph(f"<b>{cat}:</b> {category_scores[cat]:.1f}/100", normal_style) 
                                for cat in list(category_scores.keys())[:2]]]
                 legend_data.append([Paragraph(f"<b>{cat}:</b> {category_scores[cat]:.1f}/100", normal_style) 
@@ -646,7 +749,7 @@ def main():
                                                       fontName='Helvetica-Bold')))
                     story.append(Spacer(1, 0.2*cm))
                     
-                    # Converter DataFrame para lista de listas
+                    # converter DataFrame para lista de listas
                     stats_data = [edited_stats.columns.tolist()]  # Header
                     for _, row in edited_stats.iterrows():
                         stats_data.append(row.tolist())
@@ -690,6 +793,11 @@ def main():
             except Exception as e:
                 import traceback
                 st.error(f"Erro ao gerar PDF: {e}")
+                msg = str(e).lower()
+                if 'kaleido' in msg or 'chrome' in msg:
+                    st.info("💡 Dica: O Kaleido requer Chrome. Tente executar no terminal:\n\n`python -c \"import kaleido; kaleido.get_chrome_sync()\"`\n\nOu instale manualmente: `plotly_get_chrome`")
+                st.warning("Considere salvar sua sessão antes de tentar novamente usando o botão na barra lateral.")
+                st.code(traceback.format_exc())
                 st.code(traceback.format_exc())
             finally:
                 # Cleanup

@@ -15,6 +15,7 @@ Aplicação web profissional para criação de relatórios de scouting de futebo
 - 📥 **Exportação JPEG** - Download do gráfico em alta qualidade com fundo branco
 - 📄 **Relatório PDF** - Geração de relatório profissional completo
 - 🌐 **Relatório HTML** - Versão web do relatório para compartilhamento
+- 💾 **Salvar/Carregar Sessão** - exporte os dados para JSON e reabra depois sem perder nada
 - 🎨 **Personalização Visual** - Cores customizáveis para identidade visual
 - 📸 **Fotos e Mapas de Calor** - Integração de imagens no relatório
 - 📈 **Estatísticas da Temporada** - Tabela editável de performance
@@ -37,12 +38,20 @@ cd football_scout_app
 pip install -r requirements.txt
 ```
 
+   > **❗ Nota:** A geração de imagens via Plotly/Kaleido exige o navegador Chrome e algumas bibliotecas do sistema. O app agora tenta instalar Chrome automaticamente se detectar o erro ao gerar o PDF, mas você pode executar manualmente:
+   > ```bash
+   > plotly_get_chrome          # baixa uma cópia de Chrome usada por Kaleido
+   > sudo apt-get install -y libnss3 libatk-bridge2.0-0 libcups2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libxpango-1.0-0 libcairo2 libasound2
+   > ```
+
 3. Execute a aplicação:
 ```bash
 streamlit run scout_app.py
 ```
 
 4. Acesse no navegador: `http://localhost:8501`
+
+5. **Salvar / Carregar** – use o painel lateral para exportar sua sessão como JSON antes de fechar ou em caso de erro. Carregue o arquivo mais tarde para restaurar todos os campos e notas.
 
 ## 📦 Dependências
 
