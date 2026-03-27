@@ -18,11 +18,6 @@ import os
 import json
 import base64
 from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 
 # --- Função para garantir Chrome para Kaleido ---
 def ensure_chrome_available():
@@ -62,7 +57,7 @@ SCOUTING_MODEL = {
         "Físicas": ["Força física", "Estatura", "Resistência anaeróbica", "Mobilidade lateral"],
         "Técnicas": ["Desarmes", "Saída de bola", "Cabeceio", "Controle corporal"],
         "Táticas": ["Organização da linha", "Cobertura", "Posicionamento", "Gestão da profundidade"],
-        "Cognitivas": ["Tomada de decisão", "Liderança", "Sangue frio", "Consistência"]
+        "Cognitivas": ["Tomada de decisão", "Liderança", "Frieza", "Consistência"]
     },
     "Volantes": {
         "Físicas": ["Resistência aeróbica", "Força", "Agilidade", "Recuperação rápida"],
@@ -70,7 +65,7 @@ SCOUTING_MODEL = {
         "Táticas": ["Equilíbrio defesa-construção", "Cobertura", "Gestão de ritmo", "Posicionamento"],
         "Cognitivas": ["Leitura de jogo", "Disciplina", "Foco constante", "Liderança silenciosa"]
     },
-    "Médio": {
+    "Médios": {
         "Físicas": ["Resistência", "Mobilidade", "Força moderada", "Coordenação"],
         "Técnicas": ["Passe vertical", "Controle orientado", "Finalização média distância", "Visão periférica"],
         "Táticas": ["Criação de linhas de passe", "Gestão de ritmo ofensivo", "Apoio defensivo", "Ocupação de entrelinhas"],
@@ -80,7 +75,7 @@ SCOUTING_MODEL = {
         "Físicas": ["Explosão curta", "Resistência", "Coordenação fina", "Velocidade de reação"],
         "Técnicas": ["Passe de ruptura", "Finalização", "Drible curto", "Controle sob pressão"],
         "Táticas": ["Ocupação de entrelinhas", "Superioridade numérica", "Movimentação ofensiva", "Ajuste ao sistema"],
-        "Cognitivas": ["Criatividade", "Decisão no último terço", "Sangue frio", "Improviso"]
+        "Cognitivas": ["Criatividade", "Decisão no último terço", "Frieza", "Improviso"]
     },
     "Extremos": {
         "Físicas": ["Velocidade máxima", "Resistência", "Explosão", "Força em duelos"],
@@ -88,11 +83,11 @@ SCOUTING_MODEL = {
         "Táticas": ["Amplitude ofensiva", "Movimentação diagonal", "Pressão alta", "Ajuste ao sistema"],
         "Cognitivas": ["Coragem", "Criatividade", "Decisão rápida", "Resiliência"]
     },
-    "Centroavante": {
+    "Centroavantes": {
         "Físicas": ["Força física", "Impulsão", "Resistência anaeróbica", "Explosão"],
         "Técnicas": ["Finalização variada", "Controle orientado", "Passe de apoio", "Movimentação de desmarque"],
         "Táticas": ["Ataque à profundidade", "Fixação de zagueiros", "Movimentação ofensiva", "Pressão alta"],
-        "Cognitivas": ["Sangue frio", "Resiliência", "Inteligência espacial", "Liderança ofensiva"]
+        "Cognitivas": ["Frieza", "Resiliência", "Inteligência espacial", "Liderança ofensiva"]
     }
 }
 
@@ -274,7 +269,7 @@ def main():
     category_scores = {} # Média por categoria
     all_attributes_data = {} # Todos os valores para o relatório
 
-    tabs = st.tabs(list(categories.keys()))
+    tabs = st.tabs(categories.keys())
     
     for i, (cat_name, attributes) in enumerate(categories.items()):
         with tabs[i]:
@@ -343,7 +338,7 @@ def main():
     })
     
     # Exibir tabela centralizada ou full width
-    st.dataframe(summary_df, hide_index=True, width='stretch')
+    st.dataframe(summary_df, hide_index=True, use_container_width=True)
     
     with st.expander("Ver notas individuais"):
         st.json(all_attributes_data)
@@ -402,7 +397,7 @@ def main():
     )
 
     # Exibir gráfico ocupando toda a largura
-    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     # --- Botão para baixar gráfico como JPEG ---
     col_download, col_spacer = st.columns([1, 3])
@@ -449,7 +444,7 @@ def main():
     edited_stats = st.data_editor(
         st.session_state.df_stats,
         num_rows="dynamic",
-        width='stretch',
+        use_container_width=True,
         column_config={
             "Campeonato": st.column_config.TextColumn("Competição", width="medium"),
             "Jogos/Titular": st.column_config.TextColumn("J / Tit", help="Ex: 34 / 30", width="small"),
