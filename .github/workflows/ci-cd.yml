@@ -1,0 +1,142 @@
+name: 🚀 CI/CD Automático - Scout Report Pro
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 0 * * 0'  # Executar testes semanalmente
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: 🧪 Testes e Validação
+
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+
+    steps:
+    - name: 📥 Clone do Repositório
+      uses: actions/checkout@v3
+
+    - name: 🐍 Setup Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: 📦 Cache de Dependências
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: 📚 Instalar Dependências
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov flake8 mypy
+
+    - name: 🔍 Linter (Flake8)
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      continue-on-error: true
+
+    - name: 📝 Type Checking (MyPy)
+      run: |
+        mypy config.py backend_mock_data.py backend_visualizations.py backend_export.py --ignore-missing-imports
+      continue-on-error: true
+
+    - name: ✅ Rodar Testes Técnicos
+      run: |
+        python test_validacao_tecnica.py
+        
+    - name: ✅ Rodar Exemplos Funcionais
+      run: |
+        python examples_backend_usage.py
+
+    - name: 📊 Gerar Relatório de Cobertura
+      run: |
+        pytest --cov=. --cov-report=xml --cov-report=html || true
+      continue-on-error: true
+
+    - name: 📤 Upload Relatório de Cobertura
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.xml
+        fail_ci_if_error: false
+      continue-on-error: true
+
+  quality:
+    runs-on: ubuntu-latest
+    name: 📊 Análise de Qualidade
+
+    steps:
+    - name: 📥 Clone do Repositório
+      uses: actions/checkout@v3
+
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: 📦 Instalar Dependências
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: 📄 Verificar Arquivos Obrigatórios
+      run: |
+        echo "✅ Verificando documentação..."
+        [ -f "scout_app_pro.py" ] && echo "✅ scout_app_pro.py" || exit 1
+        [ -f "config.py" ] && echo "✅ config.py" || exit 1
+        [ -f "backend_mock_data.py" ] && echo "✅ backend_mock_data.py" || exit 1
+        [ -f "backend_visualizations.py" ] && echo "✅ backend_visualizations.py" || exit 1
+        [ -f "backend_export.py" ] && echo "✅ backend_export.py" || exit 1
+        [ -f "README.md" ] && echo "✅ README.md" || exit 1
+
+  deploy:
+    runs-on: ubuntu-latest
+    name: 🌐 Deploy Status
+    needs: [test, quality]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: 📥 Clone do Repositório
+      uses: actions/checkout@v3
+
+    - name: 🎉 Deploy Automático (Informativo)
+      run: |
+        echo "✅ Todos os testes passaram!"
+        echo "🌐 Deploy no Streamlit Cloud: AUTOMÁTICO"
+        echo "📍 Acesse: https://scoutreportapp.streamlit.app/"
+        echo "⏱️  Tempo: 2-3 minutos para atualizar online"
+        echo ""
+        echo "📊 Status:"
+        echo "   • Repositório: lmteamppersonal-byte/scoutreportapp"
+        echo "   • Branch: main"
+        echo "   • Arquivo de Entrada: scout_app_pro.py"
+
+  notification:
+    runs-on: ubuntu-latest
+    name: 📢 Notificação de Deploy
+    needs: deploy
+    if: always()
+
+    steps:
+    - name: ✅ Sucesso - Deploy Iniciado
+      if: needs.deploy.result == 'success'
+      run: |
+        echo "🎉 Deploy iniciado automaticamente!"
+        echo "⏳ A aplicação estará online em 2-3 minutos"
+        echo "🔗 URL: https://scoutreportapp.streamlit.app/"
+
+    - name: ❌ Erro - Verificar Logs
+      if: needs.deploy.result == 'failure'
+      run: |
+        echo "❌ Erro no deploy. Verifique os logs acima."
+        exit 1
