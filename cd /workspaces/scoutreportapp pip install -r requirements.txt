@@ -1,0 +1,4 @@
+cd /workspaces/scoutreportapp
+pip install -r requirements.txt
+python test_validacao_tecnica.py
+streamlit run scout_app_pro.py
