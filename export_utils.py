@@ -21,9 +21,10 @@ CATEGORY_COLORS = {
 }
 
 
-def criar_grafico_radar_matplotlib(category_scores, position="Jogador", figsize=(8, 8), dpi=100):
+def criar_grafico_radar_matplotlib(category_scores, position="Jogador", figsize=(11, 9), dpi=100):
     """
-    Cria um gráfico radar com Matplotlib (bem mais leve que Plotly + Kaleido).
+    Cria um gráfico radar com Matplotlib destacando cada valência com cores diferentes.
+    Versão aprimorada com legendas espaçadas e legíveis.
     
     Args:
         category_scores: Dict com {'Físicas': 75, 'Técnicas': 80, ...}
@@ -47,38 +48,78 @@ def criar_grafico_radar_matplotlib(category_scores, position="Jogador", figsize=
     angles = np.linspace(0, 2 * np.pi, len(categories), endpoint=False).tolist()
     angles += angles[:1]
     
-    # Cores dos segmentos
+    # Cores dos segmentos (cada valência com sua cor)
     colors_list = [CATEGORY_COLORS.get(cat, "#666666") for cat in categories]
     
-    # Desenhar o gráfico
-    ax.plot(angles, values, 'o-', linewidth=2, color='#333333', markersize=8)
-    ax.fill(angles, values, alpha=0.25, color='#4ECDC4')
+    # Desenhar cada segmento com sua cor destacada
+    for i in range(len(categories)):
+        # Índices para cada segmento
+        segment_angles = [angles[i], angles[i+1]]
+        segment_values = [values[i], values[i+1]]
+        
+        # Desenhar linha com cor da categoria
+        ax.plot(segment_angles, segment_values, 'o-', 
+               linewidth=3, color=colors_list[i], markersize=10, zorder=3)
+        
+        # Preenchimento com transparência
+        ax.fill(segment_angles, segment_values, alpha=0.2, color=colors_list[i], zorder=1)
     
-    # Labels nas categorias
+    # Desenhar contorno principal
+    ax.plot(angles, values, 'o-', linewidth=2, color='#1a1a1a', markersize=8, zorder=2, alpha=0.6)
+    
+    # Labels nas categorias com melhor espaçamento
     ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(categories, size=10, fontweight='bold')
+    ax.set_xticklabels(categories, size=11, fontweight='bold', 
+                       fontfamily='sans-serif', color='#1a1a1a')
     
     # Grid e limites
     ax.set_ylim(0, 100)
     ax.set_yticks([20, 40, 60, 80, 100])
-    ax.set_yticklabels(['20', '40', '60', '80', '100'], size=8, color='gray')
-    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.set_yticklabels(['20', '40', '60', '80', '100'], size=9, color='#666666', fontweight='bold')
+    ax.grid(True, linestyle='-', alpha=0.3, linewidth=0.8, color='#cccccc')
     
-    # Título
-    plt.title(f"Avaliação: {position}", size=14, fontweight='bold', pad=20)
+    # Título com melhor formatação
+    plt.title(f"📊 Avaliação: {position}\nPerfil de Valências", 
+             size=16, fontweight='bold', pad=25, color='#1a1a1a')
+    
+    # Legenda com cores das valências - espaçamento melhorado
+    legend_elements = [
+        mpatches.Patch(facecolor=CATEGORY_COLORS.get(cat, "#999999"), 
+                      edgecolor='#333333', linewidth=1.5, label=cat)
+        for cat in categories
+    ]
+    
+    # Posicionar legenda fora do gráfico com melhor espaçamento
+    ax.legend(handles=legend_elements, 
+             loc='upper left', 
+             bbox_to_anchor=(1.15, 1.05),
+             fontsize=11,
+             frameon=True,
+             fancybox=True,
+             shadow=True,
+             framealpha=0.95,
+             edgecolor='#cccccc',
+             labelspacing=1.8,  # Espaçamento entre itens da legenda
+             handlelength=1.5,   # Tamanho do marcador de cor
+             handletextpad=1.0)  # Espaço entre marcador e texto
+    
+    # Melhorar espaçamento geral
+    plt.tight_layout()
     
     # Salvar em BytesIO
     buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', dpi=dpi, bbox_inches='tight', facecolor='white')
+    plt.savefig(buffer, format='png', dpi=dpi, bbox_inches='tight', 
+               facecolor='white', edgecolor='none', pad_inches=0.3)
     buffer.seek(0)
     plt.close()
     
     return buffer
 
 
-def criar_grafico_radar_detalhado(all_attributes_data, category_mapping, position="Jogador", figsize=(10, 8), dpi=100):
+def criar_grafico_radar_detalhado(all_attributes_data, category_mapping, position="Jogador", figsize=(12, 9), dpi=100):
     """
     Cria um gráfico radar detalhado com todos os atributos (não apenas categorias).
+    Versão aprimorada com legendas espaçadas e legíveis.
     
     Args:
         all_attributes_data: Dict com {'Explosão muscular': 75, 'Agilidade': 80, ...}
@@ -103,34 +144,60 @@ def criar_grafico_radar_detalhado(all_attributes_data, category_mapping, positio
     angles = np.linspace(0, 2 * np.pi, len(attributes), endpoint=False).tolist()
     angles += angles[:1]
     
-    # Cores baseadas na categoria
+    # Cores baseadas na categoria de cada atributo
     colors_list = [CATEGORY_COLORS.get(category_mapping.get(attr, ""), "#999999") for attr in attributes]
     
-    # Desenhar
-    ax.plot(angles, values, 'o-', linewidth=2, color='#333333', markersize=6)
-    ax.fill(angles, values, alpha=0.20, color='#4ECDC4')
+    # Desenhar cada segmento com sua cor de categoria
+    for i in range(len(attributes)):
+        segment_angles = [angles[i], angles[i+1]]
+        segment_values = [values[i], values[i+1]]
+        
+        ax.plot(segment_angles, segment_values, 'o-', 
+               linewidth=2.5, color=colors_list[i], markersize=7, zorder=3)
+        ax.fill(segment_angles, segment_values, alpha=0.15, color=colors_list[i], zorder=1)
     
-    # Labels
+    # Desenhar contorno principal
+    ax.plot(angles, values, 'o-', linewidth=1.5, color='#1a1a1a', markersize=6, zorder=2, alpha=0.5)
+    
+    # Labels com melhor tamanho e espaçamento
     ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(attributes, size=9, fontweight='bold')
+    ax.set_xticklabels(attributes, size=10, fontweight='bold', 
+                       fontfamily='sans-serif', color='#1a1a1a')
     
-    # Grid
+    # Grid melhorado
     ax.set_ylim(0, 100)
     ax.set_yticks([20, 40, 60, 80, 100])
-    ax.set_yticklabels(['20', '40', '60', '80', '100'], size=8, color='gray')
-    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.set_yticklabels(['20', '40', '60', '80', '100'], size=9, color='#666666', fontweight='bold')
+    ax.grid(True, linestyle='-', alpha=0.3, linewidth=0.8, color='#cccccc')
     
-    # Título
-    plt.title(f"Avaliação Detalhada: {position}", size=14, fontweight='bold', pad=20)
+    # Título melhorado
+    plt.title(f"📊 Análise Detalhada: {position}\nAvaliação de Atributos Específicos", 
+             size=15, fontweight='bold', pad=25, color='#1a1a1a')
     
-    # Legenda com cores de categoria
-    legend_elements = [mpatches.Patch(facecolor=CATEGORY_COLORS[cat], label=cat) 
+    # Legenda com cores de categoria - espaçamento melhorado
+    legend_elements = [mpatches.Patch(facecolor=CATEGORY_COLORS[cat], 
+                                     edgecolor='#333333', linewidth=1.5, label=cat) 
                        for cat in CATEGORY_COLORS.keys()]
-    ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.3, 1.1))
+    ax.legend(handles=legend_elements, 
+             loc='upper left', 
+             bbox_to_anchor=(1.15, 1.05),
+             fontsize=11,
+             frameon=True,
+             fancybox=True,
+             shadow=True,
+             framealpha=0.95,
+             edgecolor='#cccccc',
+             labelspacing=1.8,
+             handlelength=1.5,
+             handletextpad=1.0)
+    
+    # Melhorar espaçamento geral
+    plt.tight_layout()
     
     # Salvar
     buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', dpi=dpi, bbox_inches='tight', facecolor='white')
+    plt.savefig(buffer, format='png', dpi=dpi, bbox_inches='tight', 
+               facecolor='white', edgecolor='none', pad_inches=0.3)
     buffer.seek(0)
     plt.close()
     
