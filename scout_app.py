@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
 import requests
 from bs4 import BeautifulSoup
 from reportlab.lib.pagesizes import letter, A4
@@ -18,24 +17,106 @@ import os
 import json
 import base64
 from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
+from export_utils import (
+    criar_grafico_radar_matplotlib,
+    imagem_para_bytes,
+    CATEGORY_COLORS
+)
 
-# --- Função para garantir Chrome para Kaleido ---
-def ensure_chrome_available():
-    """Tenta garantir que o Chrome está disponível para Kaleido. Retorna True se OK, False se falhar."""
-    try:
-        import kaleido
-        # Testa se Chrome já está disponível
-        test_fig = go.Figure(data=go.Bar(y=[1]))
-        test_fig.to_image(format='png', width=100, height=100)
-        return True
-    except Exception:
-        # Chrome não está disponível, tenta instalar
-        try:
-            import kaleido
-            kaleido.get_chrome_sync()
-            return True
-        except Exception:
-            return False
+# --- Funções Auxiliares (Melhorias Implementadas) ---
+
+def remove_emojis(text):
+    """
+    Remove emojis de um texto mantendo caracteres acentuados.
+    
+    Args:
+        text (str): Texto com possíveis emojis
+        
+    Returns:
+        str: Texto sem emojis
+    """
+    emoji_pattern = re.compile(
+        "["
+        u"\U0001F600-\U0001F64F"  # emoticons
+        u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+        u"\U0001F680-\U0001F6FF"  # transport & map symbols
+        u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        u"\U0001F900-\U0001F9FF"  # supplemental symbols
+        u"\U0001FA00-\U0001FA6F"  # chess symbols
+        "]+", flags=re.UNICODE
+    )
+    return emoji_pattern.sub(r'', text).strip()
+
+def sanitize_filename(text):
+    """
+    Remove caracteres perigosos de um nome para uso em filenames.
+    
+    Args:
+        text (str): Nome original
+        
+    Returns:
+        str: Nome seguro para arquivo
+    """
+    safe_name = re.sub(r'[<>:"/\\|?*]', '-', text)
+    return safe_name.replace('--', '-').strip()
+
+def validate_score_range(value, min_val=0, max_val=100):
+    """
+    Valida se um valor está no intervalo correto.
+    
+    Args:
+        value (float): Valor a validar
+        min_val (int): Valor mínimo (padrão 0)
+        max_val (int): Valor máximo (padrão 100)
+        
+    Returns:
+        bool: True se válido, False caso contrário
+    """
+    return min_val <= value <= max_val
+
+def validate_file_size(file_obj, max_size_mb=5):
+    """
+    Valida tamanho de arquivo enviado.
+    
+    Args:
+        file_obj: Objeto de arquivo do Streamlit
+        max_size_mb (float): Tamanho máximo em MB
+        
+    Returns:
+        tuple: (is_valid, size_mb)
+    """
+    if not file_obj:
+        return True, 0
+    
+    size_mb = len(file_obj.getvalue()) / (1024 * 1024)
+    is_valid = size_mb <= max_size_mb
+    return is_valid, size_mb
+
+@st.cache_data
+def cached_create_graph(category_scores_json, position):
+    """
+    Cria gráfico com cache para melhor performance.
+    Gráficos idênticos são reutilizados.
+    
+    Args:
+        category_scores_json (str): JSON com scores das categorias
+        position (str): Nome da posição
+        
+    Returns:
+        io.BytesIO: Buffer com imagem PNG do gráfico
+    """
+    category_scores = json.loads(category_scores_json)
+    return criar_grafico_radar_matplotlib(
+        category_scores=category_scores,
+        position=position,
+        figsize=(10, 8),
+        dpi=100
+    )
 
 # --- Configuração Geral ---
 st.set_page_config(page_title="Scout Report", layout="wide")
@@ -57,7 +138,7 @@ SCOUTING_MODEL = {
         "Físicas": ["Força física", "Estatura", "Resistência anaeróbica", "Mobilidade lateral"],
         "Técnicas": ["Desarmes", "Saída de bola", "Cabeceio", "Controle corporal"],
         "Táticas": ["Organização da linha", "Cobertura", "Posicionamento", "Gestão da profundidade"],
-        "Cognitivas": ["Tomada de decisão", "Liderança", "Frieza", "Consistência"]
+        "Cognitivas": ["Tomada de decisão", "Liderança", "Sangue frio", "Consistência"]
     },
     "Volantes": {
         "Físicas": ["Resistência aeróbica", "Força", "Agilidade", "Recuperação rápida"],
@@ -65,7 +146,7 @@ SCOUTING_MODEL = {
         "Táticas": ["Equilíbrio defesa-construção", "Cobertura", "Gestão de ritmo", "Posicionamento"],
         "Cognitivas": ["Leitura de jogo", "Disciplina", "Foco constante", "Liderança silenciosa"]
     },
-    "Médios": {
+    "Médio": {
         "Físicas": ["Resistência", "Mobilidade", "Força moderada", "Coordenação"],
         "Técnicas": ["Passe vertical", "Controle orientado", "Finalização média distância", "Visão periférica"],
         "Táticas": ["Criação de linhas de passe", "Gestão de ritmo ofensivo", "Apoio defensivo", "Ocupação de entrelinhas"],
@@ -75,7 +156,7 @@ SCOUTING_MODEL = {
         "Físicas": ["Explosão curta", "Resistência", "Coordenação fina", "Velocidade de reação"],
         "Técnicas": ["Passe de ruptura", "Finalização", "Drible curto", "Controle sob pressão"],
         "Táticas": ["Ocupação de entrelinhas", "Superioridade numérica", "Movimentação ofensiva", "Ajuste ao sistema"],
-        "Cognitivas": ["Criatividade", "Decisão no último terço", "Frieza", "Improviso"]
+        "Cognitivas": ["Criatividade", "Decisão no último terço", "Sangue frio", "Improviso"]
     },
     "Extremos": {
         "Físicas": ["Velocidade máxima", "Resistência", "Explosão", "Força em duelos"],
@@ -83,12 +164,97 @@ SCOUTING_MODEL = {
         "Táticas": ["Amplitude ofensiva", "Movimentação diagonal", "Pressão alta", "Ajuste ao sistema"],
         "Cognitivas": ["Coragem", "Criatividade", "Decisão rápida", "Resiliência"]
     },
-    "Centroavantes": {
+    "Centroavante": {
         "Físicas": ["Força física", "Impulsão", "Resistência anaeróbica", "Explosão"],
         "Técnicas": ["Finalização variada", "Controle orientado", "Passe de apoio", "Movimentação de desmarque"],
         "Táticas": ["Ataque à profundidade", "Fixação de zagueiros", "Movimentação ofensiva", "Pressão alta"],
-        "Cognitivas": ["Frieza", "Resiliência", "Inteligência espacial", "Liderança ofensiva"]
+        "Cognitivas": ["Sangue frio", "Resiliência", "Inteligência espacial", "Liderança ofensiva"]
     }
+}
+
+# Dicionário de descrições para tooltips dos atributos
+ATTRIBUTE_DESCRIPTIONS = {
+    # Físicas
+    "Explosão muscular": "Capacidade de criar força em movimentos rápidos e mudanças abruptas",
+    "Agilidade lateral": "Velocidade e controle em movimentos laterais (lado a lado)",
+    "Força de tronco": "Estabilidade e poder do core para equilibrio em disputas",
+    "Resistência": "Capacidade aeróbica para manter performance durante o jogo",
+    "Velocidade": "Velocidade linear máxima e aceleração",
+    "Resistência aeróbica": "Capacidade de resistência em esforços prolongados",
+    "Agilidade": "Capacidade de mudar direção rapidamente",
+    "Força": "Potência muscular em duelos e disputas",
+    "Força física": "Capacidade de vencer duelos físicos",
+    "Estatura": "Altura e alcance - importante para jogos aéreos",
+    "Resistência anaeróbica": "Capacidade em sprints repetidos",
+    "Mobilidade lateral": "Velocidade em movimentos laterais",
+    "Velocidade de reação": "Tempo de resposta a estímulos do jogo",
+    "Explosão curta": "Potência em movimentos curtos e buscas",
+    "Velocidade máxima": "Velocidade final em aceleração",
+    "Coordenação fina": "Precisão em movimentos técnicos",
+    
+    # Técnicas
+    "Defesa de chutes": "Capacidade de defender de remates ao golo",
+    "Jogo aéreo": "Efetividade em cabeceios e controles aéreos",
+    "Jogo com os pés": "Construção de jogo desde atrás com precisão",
+    "Controle de área": "Organização e domínio da área de penalti",
+    "Cruzamentos": "Qualidade e precisão de passes cruzados",
+    "Condução em velocidade": "Driblar mantendo alta velocidade",
+    "Desarmes": "Capacidade de ganhar bola de forma limpa",
+    "Passes verticais": "Lançamentos precisos para romper linhas defensivas",
+    "Saída de bola": "Capacidade de construir jogo desde defesa",
+    "Cabeceio": "Precisão e potência em cabeceios",
+    "Controle corporal": "Equilíbrio e coordenação geral",
+    "Passe curto e longo": "Precisão em todos tipos de passe",
+    "Controle sob pressão": "Manter bola com marcação próxima",
+    "Orientação corporal": "Consciência da posição e espaço",
+    "Passe de ruptura": "Passes que criam desequilibrio defensivo",
+    "Finalização": "Qualidade e precisão de remates",
+    "Drible curto": "Driblar em espaços pequenos",
+    "Drible em progressão": "Driblar enquanto avança",
+    "Finalização diagonal": "Remates de ângulos difíceis",
+    "Controle em velocidade": "Manter bola em movimentação rápida",
+    
+    # Táticas
+    "Leitura da linha defensiva": "Compreender e explorar a organização defensiva",
+    "Cobertura da profundidade": "Proteger o espaço atrás da defesa",
+    "Organização em bolas paradas": "Posicionamento correto em cantos/faltas",
+    "Posicionamento": "Localização adequada no terreno de jogo",
+    "Equilíbrio ataque-defesa": "Transição eficiente entre fases",
+    "Cobertura defensiva": "Ajudar a defesa durante ataques adversários",
+    "Superioridade numérica": "Explorar vantagem numérica",
+    "Ajuste ao sistema": "Flexibilidade táctica conforme sistema",
+    "Organização da linha": "Coordenação com companheiros de linha",
+    "Gestão da profundidade": "Controlar o espaço entre linhas",
+    "Equilíbrio defesa-construção": "Alternar entre funções defensivas e construtivas",
+    "Gestão de ritmo": "Controlar velocidade do jogo",
+    "Ocupação de entrelinhas": "Aparecer criando desequilibrio entre linhas",
+    "Movimentação ofensiva": "Deslocamentos para criar espaço",
+    "Pressão alta": "Pressionar adversários perto do golo deles",
+    "Amplitude ofensiva": "Utilizar a largura do terreno",
+    "Movimentação diagonal": "Deslocamentos em padrões diagonais",
+    "Ataque à profundidade": "Movimentos para golo com bola direta",
+    "Fixação de zagueiros": "Atrair marcação criando espaço para companheiros",
+    
+    # Cognitivas
+    "Tomada de decisão rápida": "Decidir rapidamente em situações complexas",
+    "Liderança": "Capacidade de influenciar e organizar companheiros",
+    "Resiliência": "Recuperar rapidamente de adversidades",
+    "Concentração contínua": "Manter foco durante todo o jogo",
+    "Leitura de espaços": "Identificar e explorar espaço de jogo",
+    "Disciplina tática": "Respeitar compromissos táticos",
+    "Adaptação": "Ajustar-se a diferentes situações",
+    "Tomada de decisão": "Escolher a ação correta no momento certo",
+    "Sangue frio": "Manter calma em momentos de pressão",
+    "Consistência": "Manter rendimento ao longo do tempo",
+    "Liderança silenciosa": "Influenciar através do exemplo",
+    "Foco constante": "Manter atenção durante todo jogo",
+    "Criatividade": "Capacidade de criar soluções não óbvias",
+    "Decisão no último terço": "Boas escolhas próximo ao golo adversário",
+    "Improviso": "Capacidade adaptar em situações inesperadas",
+    "Coragem": "Disposição para tomar riscos e arrebatar",
+    "Decisão rápida": "Executar escolhas em tempo reduzido",
+    "Inteligência espacial": "Compreender dinâmica do jogo tridimensional",
+    "Liderança ofensiva": "Comandar e inspirar na fase ofensiva"
 }
 
 # --- Helpers de Scraping (SofaScore) ---
@@ -165,7 +331,30 @@ def main():
     highlight_color = st.sidebar.color_picker("Cor Principal", st.session_state.get('highlight_color', "#360568"), key='highlight_color') # Roxo Premier League
     text_color = st.sidebar.color_picker("Cor do Texto", st.session_state.get('text_color', "#3c3c3c"), key='text_color')
     profile_pic = st.sidebar.file_uploader("📸 Foto do Jogador", type=['png', 'jpg', 'jpeg'])
-    heatmap_file = st.sidebar.file_uploader("🔥 Mapa de Calor", type=['png', 'jpg', 'jpeg'])
+    
+    # Validar tamanho da imagem de perfil
+    if profile_pic is not None:
+        is_valid, size_mb = validate_file_size(profile_pic, max_size_mb=5)
+        if not is_valid:
+            st.sidebar.warning(f"⚠️ Imagem grande: {size_mb:.1f}MB (limite: 5MB)")
+            profile_pic = None
+    
+    heatmap_files = st.sidebar.file_uploader("🔥 Mapas de Calor", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
+    
+    # Validar tamanho total dos mapas de calor
+    if heatmap_files:
+        total_size = sum(len(f.getvalue()) for f in heatmap_files) / (1024*1024)
+        if total_size > 20:
+            st.sidebar.warning(f"⚠️ Mapas grandes: {total_size:.1f}MB (limite: 20MB)")
+            heatmap_files = []
+    
+    # Campo para nomear arquivo de download
+    st.sidebar.header("📥 Download")
+    raw_filename = st.sidebar.text_input("Nome do arquivo (sem extensão)", 
+                                        value=st.session_state.get('download_filename', 'scout_report'),
+                                        key='download_filename')
+    # Sanitizar nome do arquivo
+    download_filename = sanitize_filename(raw_filename) if raw_filename else 'scout_report'
     
     st.title("📝 Scout Report")
     st.markdown("Avaliação profissional baseada em 4 pilares: **Físico, Técnico, Tático e Cognitivo**.")
@@ -177,7 +366,9 @@ def main():
     # Linha 1
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        name = st.text_input("Nome", value=st.session_state.get('name', "Ex: Cole Palmer"), key='name')
+        raw_name = st.text_input("Nome", value=st.session_state.get('name', "Ex: Cole Palmer"), key='name')
+        # Remover emojis do nome do jogador
+        name = remove_emojis(raw_name)
     with c2:
         positions = list(SCOUTING_MODEL.keys())
         default_pos = st.session_state.get('position', positions[0])
@@ -201,19 +392,6 @@ def main():
 
     # sessão de salvar/carregar para persistir trabalho
     st.sidebar.header("💾 Sessão")
-    
-    # Verificar status do Chrome para geração de PDF
-    st.sidebar.header("🔧 Status do Sistema")
-    if ensure_chrome_available():
-        st.sidebar.success("✅ Chrome disponível - PDFs com gráficos funcionarão normalmente")
-    else:
-        st.sidebar.warning("⚠️ Chrome não detectado - PDFs serão gerados sem gráficos. Clique no botão abaixo para instalar.")
-        if st.sidebar.button("Instalar Chrome para Kaleido"):
-            with st.spinner("Instalando Chrome..."):
-                if ensure_chrome_available():
-                    st.sidebar.success("✅ Chrome instalado com sucesso! Recarregue a página.")
-                else:
-                    st.sidebar.error("❌ Não foi possível instalar Chrome automaticamente. Tente manualmente: `plotly_get_chrome`")
     
     uploaded_session = st.sidebar.file_uploader("Carregar sessão", type=["json"])
     if uploaded_session is not None:
@@ -269,160 +447,87 @@ def main():
     category_scores = {} # Média por categoria
     all_attributes_data = {} # Todos os valores para o relatório
 
-    tabs = st.tabs(categories.keys())
-    
-    for i, (cat_name, attributes) in enumerate(categories.items()):
-        with tabs[i]:
-            scores = []
-            cols = st.columns(2)
-            for j, attr in enumerate(attributes):
-                with cols[j % 2]:
-                    val = st.slider(f"{attr}", 0, 100, 70, key=f"{position}_{cat_name}_{attr}")
-                    scores.append(val)
-                    all_attributes_data[attr] = val
-            
-            # Média da Categoria
-            if scores:
-                avg = sum(scores) / len(scores)
-                category_scores[cat_name] = avg
-                st.info(f"Média {cat_name}: {avg:.1f}")
-
-    # --- Visualização ---
-    st.divider()
-    
-    # Gráfico Radar (Detalhado por Categoria)
-    fig = go.Figure()
-    
-    # Cores fixas para as categorias - Ajustadas para ALTO CONTRASTE
-    CATEGORY_COLORS = {
-        "Físicas": "#c0392b",    # Vermelho escuro/intenso
-        "Técnicas": "#2980b9",   # Azul forte
-        "Táticas": "#27ae60",    # Verde esmeralda
-        "Cognitivas": "#f1c40f"  # Amarelo Ouro
-    }
-    
-    # Lista ordenada de todos os atributos para fixar o eixo
-    all_attrs_ordered = []
-    for cat_attrs in categories.values():
-        all_attrs_ordered.extend(cat_attrs)
-    
-    for cat_name, attributes in categories.items():
-        # Coletar valores desta categoria específica
-        cat_vals = [all_attributes_data.get(attr, 0) for attr in attributes]
+    # Validar e converter dict_keys para list para evitar TypeError em st.tabs
+    tab_labels = list(categories.keys())
+    if not tab_labels:
+        st.warning("⚠️ Nenhuma categoria disponível para este atleta. Verifique a configuração do modelo de scouting.")
+    else:
+        tabs = st.tabs(tab_labels)
         
-        # Gráfico de Barras Polares ("Pizza" / Coxcomb)
-        # Cada valência sai do zero visualmente
-        fig.add_trace(go.Barpolar(
-            r=cat_vals,
-            theta=attributes,
-            name=cat_name,
-            marker_color=CATEGORY_COLORS.get(cat_name, highlight_color),
-            marker_line_color='white',
-            marker_line_width=1,
-            opacity=0.8,
-            hoverinfo='text',
-            text=[f"{cat_name}: {a} - {v}" for a, v in zip(attributes, cat_vals)]
-        ))
-
-    # --- Resumo Técnico (Acima do Gráfico) ---
-    st.divider()
-    st.write("### Resumo Técnico")
-    
-    # Recuperar nomes e médias para a tabela
-    cat_names = list(category_scores.keys())
-    cat_values = list(category_scores.values())
-    
-    summary_df = pd.DataFrame({
-        "Pilar": cat_names,
-        "Média": [f"{v:.1f}" for v in cat_values]
-    })
-    
-    # Exibir tabela centralizada ou full width
-    st.dataframe(summary_df, hide_index=True, use_container_width=True)
-    
-    with st.expander("Ver notas individuais"):
-        st.json(all_attributes_data)
-
-    # --- Visualização do Gráfico ---
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True, 
-                range=[0, 100], 
-                tickvals=[0, 20, 40, 60, 80, 100],
-                ticktext=["0", "20", "40", "60", "80", "100"],
-                tickfont=dict(color=text_color, size=12, weight="bold"), 
-                gridcolor='rgba(150,150,150,0.5)', 
-                gridwidth=1,
-                linewidth=2,
-                linecolor='rgba(100,100,100,0.8)'
-            ),
-            angularaxis=dict(
-                tickfont=dict(color=text_color, size=14, weight="bold"),
-                gridcolor='rgba(150,150,150,0.5)',
-                gridwidth=1,
-                rotation=90,
-                direction="clockwise",
-                categoryorder="array",
-                categoryarray=all_attrs_ordered 
-            ),
-            bgcolor=bg_color,
-            hole=0.05 
-        ),
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-            y=-0.1, 
-            xanchor="center",
-            x=0.5,
-            font=dict(size=16, color=text_color, weight="bold"),
-            bgcolor="rgba(255,255,255,0.8)",
-            bordercolor="rgba(0,0,0,0.2)",
-            borderwidth=1
-        ),
-        title={
-            'text': f"Perfil Detalhado: {name}",
-            'y':0.98,
-            'x':0.5,
-            'xanchor': 'center',
-            'yanchor': 'top',
-            'font': dict(size=26, color=text_color, weight="bold")
-        },
-        font=dict(color=text_color),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=80, b=120, l=80, r=80), 
-        height=800 
-    )
-
-    # Exibir gráfico ocupando toda a largura
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-    # --- Botão para baixar gráfico como JPEG ---
-    col_download, col_spacer = st.columns([1, 3])
-    with col_download:
-        if st.button("📊 Baixar Gráfico (JPEG)"):
-            try:
-                # Criar uma cópia do gráfico com fundo branco para exportação
-                fig_export = go.Figure(fig)
-                fig_export.update_layout(
-                    paper_bgcolor='white',
-                    plot_bgcolor='white',
-                    polar=dict(bgcolor='white')
-                )
+        for i, (cat_name, attributes) in enumerate(categories.items()):
+            with tabs[i]:
+                scores = []
+                cols = st.columns(2)
+                for j, attr in enumerate(attributes):
+                    with cols[j % 2]:
+                        # Obter descrição do atributo para tooltip
+                        help_text = ATTRIBUTE_DESCRIPTIONS.get(attr, "Avalie este atributo de 0 a 100")
+                        val = st.slider(f"{attr}", 0, 100, 70, 
+                                       help=help_text,
+                                       key=f"{position}_{cat_name}_{attr}")
+                        scores.append(val)
+                        all_attributes_data[attr] = val
                 
-                # Gerar imagem JPEG do gráfico com fundo branco
-                img_bytes = fig_export.to_image(format="jpeg", width=1200, height=900, scale=2)
-                st.download_button(
-                    "📥 Download JPEG",
-                    img_bytes,
-                    f"radar_{name.replace(' ', '_')}.jpeg",
-                    "image/jpeg",
-                    key="jpeg_download"
-                )
-            except Exception as e:
-                st.error(f"Erro ao gerar JPEG: {e}")
+                # Média da Categoria
+                if scores:
+                    avg = sum(scores) / len(scores)
+                    category_scores[cat_name] = avg
+                    st.info(f"Média {cat_name}: {avg:.1f}")
+
+        # --- Visualização ---
+        st.divider()
+        st.write("### Resumo Técnico")
+        
+        # Recuperar nomes e médias para a tabela
+        cat_names = list(category_scores.keys())
+        cat_values = list(category_scores.values())
+        
+        summary_df = pd.DataFrame({
+            "Pilar": cat_names,
+            "Média": [f"{v:.1f}" for v in cat_values]
+        })
+        
+        # Exibir tabela centralizada ou full width
+        st.dataframe(summary_df, hide_index=True, width='stretch')
+        
+        with st.expander("Ver notas individuais"):
+            st.json(all_attributes_data)
+
+        # --- Gráfico Radar com Matplotlib ---
+        st.divider()
+        st.write("### Gráfico de Avaliação")
+        
+        # Criar gráfico radar com Matplotlib com CACHE para melhor performance
+        category_scores_json = json.dumps(category_scores)
+        radar_buffer = cached_create_graph(category_scores_json, position)
+        
+        # Exibir o gráfico
+        st.image(radar_buffer, caption=f"Perfil Detalhado: {name}", use_container_width=True)
+        
+        # --- Botão para baixar gráfico como JPEG ---
+        col_download, col_spacer = st.columns([1, 3])
+        with col_download:
+            if st.button("📊 Baixar Gráfico (JPEG)"):
+                try:
+                    # Converter buffer PNG para JPEG
+                    from PIL import Image as PILImage
+                    radar_buffer.seek(0)
+                    img_pil = PILImage.open(radar_buffer).convert("RGB")
+                    
+                    # Salvar como JPEG
+                    jpeg_buffer = io.BytesIO()
+                    img_pil.save(jpeg_buffer, format="JPEG", quality=95)
+                    jpeg_buffer.seek(0)
+                    
+                    st.download_button(
+                        "📥 Download JPEG",
+                        jpeg_buffer.getvalue(),
+                        f"radar_{name.replace(' ', '_')}.jpeg",
+                        "image/jpeg",
+                        key="jpeg_download"
+                    )
+                except Exception as e:
+                    st.error(f"Erro ao gerar JPEG: {e}")
 
     # --- Análise Descritiva ---
     st.divider()
@@ -444,7 +549,7 @@ def main():
     edited_stats = st.data_editor(
         st.session_state.df_stats,
         num_rows="dynamic",
-        use_container_width=True,
+        width='stretch',
         column_config={
             "Campeonato": st.column_config.TextColumn("Competição", width="medium"),
             "Jogos/Titular": st.column_config.TextColumn("J / Tit", help="Ex: 34 / 30", width="small"),
@@ -468,25 +573,12 @@ def main():
             chrome_failed = False
             
             try:
-                # Gerar imagem do gráfico (pode falhar se Chrome não estiver disponível)
+                # Gerar imagem do gráfico com Matplotlib (sem problemas de Chrome!)
                 try:
-                    img_bytes = fig.to_image(format="png", width=700, height=500, scale=2)
-                except Exception as img_err:
-                    msg = str(img_err).lower()
-                    if 'kaleido' in msg or 'chrome' in msg:
-                        # Tenta garantir Chrome
-                        st.warning("Tentando instalar Chrome para gerar imagem do gráfico...")
-                        if ensure_chrome_available():
-                            try:
-                                img_bytes = fig.to_image(format="png", width=700, height=500, scale=2)
-                            except Exception:
-                                chrome_failed = True
-                                st.warning("Não foi possível gerar a imagem do gráfico, mas o PDF será criado com os dados em texto.")
-                        else:
-                            chrome_failed = True
-                            st.warning("Chrome não disponível. O PDF será criado sem a imagem do gráfico radar, mas com todos os dados em texto.")
-                    else:
-                        raise
+                    img_bytes = imagem_para_bytes(radar_buffer)
+                except Exception as e:
+                    chrome_failed = True
+                    st.warning(f"Erro ao gerar imagem do gráfico: {e}")
                 
                 buffer = io.BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=A4,
@@ -788,11 +880,7 @@ def main():
             except Exception as e:
                 import traceback
                 st.error(f"Erro ao gerar PDF: {e}")
-                msg = str(e).lower()
-                if 'kaleido' in msg or 'chrome' in msg:
-                    st.info("💡 Dica: O Kaleido requer Chrome. Tente executar no terminal:\n\n`python -c \"import kaleido; kaleido.get_chrome_sync()\"`\n\nOu instale manualmente: `plotly_get_chrome`")
                 st.warning("Considere salvar sua sessão antes de tentar novamente usando o botão na barra lateral.")
-                st.code(traceback.format_exc())
                 st.code(traceback.format_exc())
             finally:
                 # Cleanup
@@ -824,7 +912,8 @@ def main():
                     profile_photo_html = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;">SEM FOTO</div>'
                 
                 # Gráfico
-                chart_base64 = base64.b64encode(fig.to_image(format="png", width=800, height=600, scale=2)).decode()
+                radar_buffer.seek(0)
+                chart_base64 = base64.b64encode(radar_buffer.read()).decode()
                 chart_html = f'<img src="data:image/png;base64,{chart_base64}" alt="Gráfico Radar" style="max-width:100%;height:auto;">'
                 
                 # Legenda do gráfico

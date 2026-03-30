@@ -266,18 +266,22 @@ def render_secao_avaliacoes(posicao: str) -> Tuple[Dict[str, float], Dict[str, f
     scores_atributos = {}
     medias_categorias = {}
     
-    # Cria tabs para cada categoria
-    tabs = st.tabs(list(categorias.keys()))
-    
-    for idx, (categoria, atributos) in enumerate(categorias.items()):
-        with tabs[idx]:
-            cor_categoria = CATEGORY_COLORS.get(categoria, "#808080")
-            
-            st.markdown(f"""
-                <div style='background-color: {cor_categoria}20; border-left: 4px solid {cor_categoria}; padding: 10px; margin-bottom: 10px;'>
-                <b>{categoria}</b> - Avaliação de {len(atributos)} atributos específicos para {posicao}
-                </div>
-            """, unsafe_allow_html=True)
+    # Cria tabs para cada categoria - com validação para evitar TypeError
+    tab_labels = list(categorias.keys())
+    if not tab_labels:
+        st.warning(f"⚠️ Nenhuma categoria disponível para a posição {posicao}. Verifique a configuração do modelo de scouting.")
+    else:
+        tabs = st.tabs(tab_labels)
+        
+        for idx, (categoria, atributos) in enumerate(categorias.items()):
+            with tabs[idx]:
+                cor_categoria = CATEGORY_COLORS.get(categoria, "#808080")
+                
+                st.markdown(f"""
+                    <div style='background-color: {cor_categoria}20; border-left: 4px solid {cor_categoria}; padding: 10px; margin-bottom: 10px;'>
+                    <b>{categoria}</b> - Avaliação de {len(atributos)} atributos específicos para {posicao}
+                    </div>
+                """, unsafe_allow_html=True)
             
             scores_categoria = []
             
@@ -321,7 +325,10 @@ def render_secao_avaliacoes(posicao: str) -> Tuple[Dict[str, float], Dict[str, f
                     f"{media_cat:.1f}/100",
                     delta=f"{media_cat - 65:.1f} vs. Média Liga"
                 )
+        
+        return scores_atributos, medias_categorias
     
+    # Retornar dicionários vazios se não houver categorias
     return scores_atributos, medias_categorias
 
 
