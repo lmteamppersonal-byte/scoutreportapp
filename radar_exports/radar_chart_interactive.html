@@ -1,0 +1,131 @@
+
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Análise Comparativa de Desempenho - 4 Séries</title>
+            <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    margin: 0;
+                    padding: 20px;
+                    background-color: #f5f5f5;
+                }
+                .container {
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    background: white;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+                .title {
+                    text-align: center;
+                    font-size: 24px;
+                    font-weight: bold;
+                    margin-bottom: 20px;
+                    color: #222;
+                }
+                .description {
+                    background: #f9f9f9;
+                    padding: 15px;
+                    border-left: 4px solid #36A2EB;
+                    margin-bottom: 20px;
+                    font-size: 14px;
+                    color: #555;
+                }
+                #chart {
+                    width: 100%;
+                    height: 600px;
+                }
+                .legend {
+                    margin-top: 20px;
+                    padding: 15px;
+                    background: #fafafa;
+                    border-radius: 4px;
+                }
+                .legend-item {
+                    margin: 8px 0;
+                    font-size: 13px;
+                }
+                .legend-color {
+                    display: inline-block;
+                    width: 12px;
+                    height: 12px;
+                    margin-right: 8px;
+                    border: 2px solid;
+                    vertical-align: middle;
+                }
+                .export-buttons {
+                    margin: 20px 0;
+                    text-align: center;
+                }
+                .btn {
+                    display: inline-block;
+                    padding: 10px 20px;
+                    margin: 0 5px;
+                    background: #36A2EB;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: bold;
+                }
+                .btn:hover {
+                    background: #0056b3;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="title">Análise Comparativa de Desempenho - 4 Séries</div>
+                
+                <div class="description" role="status" aria-live="polite">
+                    <strong>Resumo da Análise:</strong><br>
+                    Gráfico radar comparativo com 4 série(s). 
+                    Escala de 0 a 100 em marcações de 20 pontos.
+                    Passe o mouse sobre os pontos para visualizar valores detalhados.
+                </div>
+                
+                <div class="export-buttons">
+                    <button class="btn" onclick="downloadPNG()">📥 Baixar PNG</button>
+                    <button class="btn" onclick="downloadSVG()">📥 Baixar SVG</button>
+                </div>
+                
+                <div id="chart"></div>
+                
+                <div class="legend">
+                    <strong>Séries Incluídas:</strong><br>
+        <div class="legend-item"><span class="legend-color" style="border-color: #FFD156; background: rgba(255,205,86,0.35)"></span>Série Amarela</div><div class="legend-item"><span class="legend-color" style="border-color: #FF6347; background: rgba(255,99,71,0.35)"></span>Série Vermelha</div><div class="legend-item"><span class="legend-color" style="border-color: #36A2EB; background: rgba(54,162,235,0.35)"></span>Série Azul</div><div class="legend-item"><span class="legend-color" style="border-color: #4BC0C0; background: rgba(75,192,192,0.35)"></span>Série Verde</div>
+                </div>
+            </div>
+            
+            <script>
+                const figure = {"data":[{"fill":"toself","fillcolor":"rgba(255,205,86,0.35)","hovertemplate":"%{theta}\u003cbr\u003eValor: %{r}\u003cextra\u003e\u003c\u002fextra\u003e","line":{"color":"#FFD156","width":2.5},"marker":{"color":"#FFD156","line":{"color":"white","width":2},"size":8},"mode":"markers+lines+text","name":"Série Amarela","r":[85,70,90,60,88,92,75,80,78,84,65,70,82,90,76,88,85],"text":["85","70","90","60","88","92","75","80","78","84","65","70","82","90","76","88"],"textfont":{"color":"#222222","size":10},"textposition":"top center","theta":["Liderança ofensiva","Força física","Impulsão","Resistência anaeróbica","Explosão","Finalização","Controle orientado","Passe de apoio","Movimentação","Ataque à profundidade","Fixação de zagueiros","Tentação ofensiva","Pressão alta","Sangue frio","Resiliência","Inteligência espacial","Liderança ofensiva"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(255,99,71,0.35)","hovertemplate":"%{theta}\u003cbr\u003eValor: %{r}\u003cextra\u003e\u003c\u002fextra\u003e","line":{"color":"#FF6347","width":2.5},"marker":{"color":"#FF6347","line":{"color":"white","width":2},"size":8},"mode":"markers+lines+text","name":"Série Vermelha","r":[70,85,72,78,80,68,82,74,70,66,88,75,80,68,84,72,70],"text":["70","85","72","78","80","68","82","74","70","66","88","75","80","68","84","72"],"textfont":{"color":"#222222","size":10},"textposition":"top center","theta":["Liderança ofensiva","Força física","Impulsão","Resistência anaeróbica","Explosão","Finalização","Controle orientado","Passe de apoio","Movimentação","Ataque à profundidade","Fixação de zagueiros","Tentação ofensiva","Pressão alta","Sangue frio","Resiliência","Inteligência espacial","Liderança ofensiva"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(54,162,235,0.35)","hovertemplate":"%{theta}\u003cbr\u003eValor: %{r}\u003cextra\u003e\u003c\u002fextra\u003e","line":{"color":"#36A2EB","width":2.5},"marker":{"color":"#36A2EB","line":{"color":"white","width":2},"size":8},"mode":"markers+lines+text","name":"Série Azul","r":[60,65,70,85,68,74,80,86,88,72,60,82,70,76,68,64,60],"text":["60","65","70","85","68","74","80","86","88","72","60","82","70","76","68","64"],"textfont":{"color":"#222222","size":10},"textposition":"top center","theta":["Liderança ofensiva","Força física","Impulsão","Resistência anaeróbica","Explosão","Finalização","Controle orientado","Passe de apoio","Movimentação","Ataque à profundidade","Fixação de zagueiros","Tentação ofensiva","Pressão alta","Sangue frio","Resiliência","Inteligência espacial","Liderança ofensiva"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(75,192,192,0.35)","hovertemplate":"%{theta}\u003cbr\u003eValor: %{r}\u003cextra\u003e\u003c\u002fextra\u003e","line":{"color":"#4BC0C0","width":2.5},"marker":{"color":"#4BC0C0","line":{"color":"white","width":2},"size":8},"mode":"markers+lines+text","name":"Série Verde","r":[78,72,76,70,82,80,68,66,74,88,70,68,76,72,80,86,78],"text":["78","72","76","70","82","80","68","66","74","88","70","68","76","72","80","86"],"textfont":{"color":"#222222","size":10},"textposition":"top center","theta":["Liderança ofensiva","Força física","Impulsão","Resistência anaeróbica","Explosão","Finalização","Controle orientado","Passe de apoio","Movimentação","Ataque à profundidade","Fixação de zagueiros","Tentação ofensiva","Pressão alta","Sangue frio","Resiliência","Inteligência espacial","Liderança ofensiva"],"type":"scatterpolar"}],"layout":{"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"title":{"font":{"size":18,"color":"#222222","family":"Arial, sans-serif"},"text":"\u003cb\u003eAnálise Comparativa de Desempenho - 4 Séries\u003c\u002fb\u003e","x":0.5,"xanchor":"center"},"polar":{"radialaxis":{"tickfont":{"size":11,"color":"#666666"},"visible":true,"range":[0,100],"tickvals":[0,20,40,60,80,100],"gridcolor":"#E6E6E6","gridwidth":1,"showline":true,"linewidth":2,"linecolor":"#E6E6E6"},"angularaxis":{"tickfont":{"size":12,"color":"#222222","family":"Arial, sans-serif"},"gridcolor":"#E6E6E6","gridwidth":1,"linewidth":2,"linecolor":"#E6E6E6"},"bgcolor":"rgba(255, 255, 255, 0)"},"legend":{"font":{"size":11,"family":"Arial, sans-serif"},"x":1.0,"y":1.0,"xanchor":"right","yanchor":"top","bgcolor":"rgba(255, 255, 255, 0.8)","bordercolor":"#E6E6E6","borderwidth":1},"font":{"family":"Arial, sans-serif","size":12,"color":"#222222"},"margin":{"l":100,"r":100,"t":100,"b":100},"showlegend":true,"plot_bgcolor":"white","paper_bgcolor":"white","hovermode":"closest","width":1000,"height":900}};
+                
+                Plotly.newPlot('chart', figure.data, figure.layout, {responsive: true});
+                
+                function downloadPNG() {
+                    Plotly.downloadImage('chart', {
+                        format: 'png',
+                        width: 1200,
+                        height: 1080,
+                        filename: 'Análise_Comparativa_de_Desempenho_-_4_Séries_radar'
+                    });
+                }
+                
+                function downloadSVG() {
+                    Plotly.downloadImage('chart', {
+                        format: 'svg',
+                        width: 1200,
+                        height: 1080,
+                        filename: 'Análise_Comparativa_de_Desempenho_-_4_Séries_radar'
+                    });
+                }
+            </script>
+        </body>
+        </html>
+        
