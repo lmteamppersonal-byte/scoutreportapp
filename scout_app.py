@@ -339,7 +339,29 @@ ATTRIBUTE_DESCRIPTIONS = {
     "Coragem": "Disposição para tomar riscos e arrebatar",
     "Decisão rápida": "Executar escolhas em tempo reduzido",
     "Inteligência espacial": "Compreender dinâmica do jogo tridimensional",
-    "Liderança ofensiva": "Comandar e inspirar na fase ofensiva"
+    "Liderança ofensiva": "Comandar e inspirar na fase ofensiva",
+    
+    # Descrições adicionadas para completar cobertura de todas as posições
+    "Cobertura": "Apoio defensivo junto ao colega de linha",
+    "Recuperação rápida": "Velocidade para se recuperar após perda de bola",
+    "Leitura de jogo": "Capacidade de antecipar movimentos do adversário",
+    "Disciplina": "Respeito aos princípios táticos sem improviso",
+    "Mobilidade": "Facilidade em se reposicionar no terreno",
+    "Força moderada": "Potência suficiente sem ser o ponto forte",
+    "Coordenação": "Harmonia entre movimento e técnica",
+    "Passe vertical": "Passes para romper linhas opositoras",
+    "Controle orientado": "Receber e controlar de forma útil para a ação seguinte",
+    "Finalização média distância": "Remate com precisão da meia-distância",
+    "Visão periférica": "Capacidade de ver o jogo sem olhar diretamente",
+    "Criação de linhas de passe": "Movimentação que abre espaço para passes criativos",
+    "Gestão de ritmo ofensivo": "Controlar a velocidade e intensidade do ataque",
+    "Apoio defensivo": "Ajudar a defesa durante fases ofensivas",
+    "Explosão": "Potência em aceleração durante curtos períodos",
+    "Força em duelos": "Resistência em disputas de corpo",
+    "Impulsão": "Capacidade de salto e elevação",
+    "Finalização variada": "Remate com múltiplas técnicas e ângulos",
+    "Passe de apoio": "Passe que facilita ações do colega",
+    "Movimentação de desmarque": "Movimentos para se desmarcar da defesa"
 }
 
 # --- Helpers de Scraping (SofaScore) ---
