@@ -98,41 +98,62 @@ def validate_file_size(file_obj, max_size_mb=5):
     is_valid = size_mb <= max_size_mb
     return is_valid, size_mb
 
-def criar_radar_simples(category_scores, title="Avaliação"):
+def criar_radar_completo(all_attributes_data, position, scouting_model, title="Avaliação Completa"):
     """
-    Cria gráfico radar simples com 4 categorias usando Plotly.
-    Modelo anterior: Físicas, Técnicas, Táticas, Cognitivas.
+    Cria gráfico radar com 16 eixos - todas as características agrupadas por valência.
+    Cada valência tem uma cor única: Físicas (Vermelho), Técnicas (Ciano), 
+    Táticas (Azul), Cognitivas (Laranja).
     
     Args:
-        category_scores (dict): Dicionário com categorias e scores
+        all_attributes_data (dict): Dicionário com todos os 16 atributos e scores
+        position (str): Nome da posição
+        scouting_model (dict): Modelo de scouting com estrutura de categorias
         title (str): Título do gráfico
         
     Returns:
-        go.Figure: Figura Plotly pronta para render
+        go.Figure: Figura Plotly com 16 eixos
     """
-    categories = list(category_scores.keys())
-    values = list(category_scores.values())
-    
-    # Cores para as categorias
+    # Cores para cada valência (com transparência para preenchimento)
     color_map = {
-        "Físicas": "rgba(220, 53, 69, 0.65)",  # Vermelho
-        "Técnicas": "rgba(23, 162, 184, 0.65)",  # Ciano
-        "Táticas": "rgba(0, 123, 255, 0.65)",  # Azul
-        "Cognitivas": "rgba(253, 126, 20, 0.65)"  # Laranja
+        "Físicas": {"fill": "rgba(220, 53, 69, 0.3)", "line": "rgba(220, 53, 69, 1)"},  # Vermelho
+        "Técnicas": {"fill": "rgba(23, 162, 184, 0.3)", "line": "rgba(23, 162, 184, 1)"},  # Ciano
+        "Táticas": {"fill": "rgba(0, 123, 255, 0.3)", "line": "rgba(0, 123, 255, 1)"},  # Azul
+        "Cognitivas": {"fill": "rgba(253, 126, 20, 0.3)", "line": "rgba(253, 126, 20, 1)"}  # Laranja
     }
     
-    colors_list = [color_map.get(cat, "rgba(100, 100, 100, 0.65)") for cat in categories]
+    # Montar dados em ordem: Físicas (4) -> Técnicas (4) -> Táticas (4) -> Cognitivas (4)
+    labels = []
+    values = []
+    fill_colors = []
+    line_colors = []
+    
+    categories = scouting_model.get(position, {})
+    
+    for category_name in ["Físicas", "Técnicas", "Táticas", "Cognitivas"]:
+        if category_name in categories:
+            attributes = categories[category_name]
+            for attr in attributes:
+                labels.append(attr)
+                values.append(all_attributes_data.get(attr, 0))
+                fill_colors.append(color_map[category_name]["fill"])
+                line_colors.append(color_map[category_name]["line"])
     
     fig = go.Figure()
     
+    # Criar trace com cores variadas por valência
     fig.add_trace(go.Scatterpolar(
         r=values,
-        theta=categories,
+        theta=labels,
         fill='toself',
-        name=title,
-        fillcolor=colors_list[0] if len(colors_list) > 0 else "rgba(100, 100, 100, 0.65)",
-        line=dict(color=colors_list[0].replace(', 0.65)', ', 1)') if len(colors_list) > 0 else "rgb(100, 100, 100)", width=2),
-        hovertemplate="<b>%{theta}</b><br>Pontuação: %{r:.1f}<extra></extra>"
+        name=f"Avaliação: {position}",
+        fillcolor="rgba(150, 150, 200, 0.4)",  # Preenchimento geral suave
+        line=dict(color="rgba(100, 100, 150, 1)", width=2),
+        marker=dict(
+            size=8,
+            color=[line_colors[i].replace(', 1)', ', 0.8)') for i in range(len(line_colors))],
+            line=dict(color=line_colors, width=2)
+        ),
+        hovertemplate="<b>%{theta}</b><br>Pontuação: %{r:.0f}<extra></extra>"
     ))
     
     fig.update_layout(
@@ -140,45 +161,47 @@ def criar_radar_simples(category_scores, title="Avaliação"):
             radialaxis=dict(
                 visible=True,
                 range=[0, 100],
-                tickfont=dict(size=12),
+                tickfont=dict(size=11),
                 gridcolor="#E6E6E6",
                 showline=True,
                 linewidth=1,
                 linecolor="#999"
             ),
             angularaxis=dict(
-                tickfont=dict(size=13, color="#333"),
-                linecolor="#333",
-                linewidth=2
+                tickfont=dict(size=11, color="#333"),
+                linecolor="#ccc",
+                linewidth=1
             ),
-            bgcolor="rgba(240, 240, 240, 0.3)"
+            bgcolor="rgba(240, 245, 250, 0.5)"
         ),
-        title=dict(text=title, font=dict(size=18, color="#1f77b4"), x=0.5, xanchor="center"),
+        title=dict(
+            text=f"{title} - {position}",
+            font=dict(size=18, color="#1f77b4"),
+            x=0.5,
+            xanchor="center"
+        ),
         showlegend=False,
-        height=600,
-        width=600,
-        font=dict(size=12, family="Arial, sans-serif"),
-        margin=dict(l=50, r=50, t=80, b=50)
+        height=750,
+        width=900,
+        font=dict(size=10, family="Arial, sans-serif"),
+        margin=dict(l=80, r=80, t=100, b=80),
+        hovermode='closest'
+    )
+    
+    # Adicionar anotação com legenda de cores
+    legend_text = "🔴 Físicas • 🟢 Técnicas • 🔵 Táticas • 🟠 Cognitivas"
+    fig.add_annotation(
+        text=legend_text,
+        xref="paper", yref="paper",
+        x=0.5, y=-0.08,
+        showarrow=False,
+        font=dict(size=12, color="#333"),
+        xanchor="center"
     )
     
     return fig
 
-@st.cache_data
-def cached_create_graph(category_scores_json, position):
-    """
-    Cria gráfico com cache para melhor performance.
-    Gráficos idênticos são reutilizados.
-    
-    Args:
-        category_scores_json (str): JSON com scores das categorias
-        position (str): Nome da posição
-        
-    Returns:
-        io.BytesIO: Buffer com imagem PNG do gráfico
-    """
-    category_scores = json.loads(category_scores_json)
-    fig = criar_radar_simples(category_scores, position)
-    return fig.to_image(format="png", width=800, height=600)
+
 
 # --- Configuração Geral ---
 st.set_page_config(page_title="Scout Report", layout="wide")
@@ -555,12 +578,12 @@ def main():
         with st.expander("Ver notas individuais"):
             st.json(all_attributes_data)
 
-        # --- Gráfico Radar com Plotly ---
+        # --- Gráfico Radar Completo com Plotly ---
         st.divider()
-        st.write("### Gráfico de Avaliação")
+        st.write("### 🎯 Gráfico Completo de Avaliação (16 Características)")
         
-        # Criar gráfico radar Plotly simples com 4 categorias
-        fig = criar_radar_simples(category_scores, f"Avaliação: {position}")
+        # Criar gráfico radar com todos os 16 atributos agrupados por valência
+        fig = criar_radar_completo(all_attributes_data, position, SCOUTING_MODEL, "Perfil Técnico")
         st.plotly_chart(fig, use_container_width=True)
         
         # Botão Plotly para download incluído no gráfico interativo
