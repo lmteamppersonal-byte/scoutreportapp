@@ -22,6 +22,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
+import plotly.graph_objects as go
 from export_utils import (
     criar_grafico_radar_matplotlib,
     imagem_para_bytes,
@@ -97,6 +98,71 @@ def validate_file_size(file_obj, max_size_mb=5):
     is_valid = size_mb <= max_size_mb
     return is_valid, size_mb
 
+def criar_radar_simples(category_scores, title="Avaliação"):
+    """
+    Cria gráfico radar simples com 4 categorias usando Plotly.
+    Modelo anterior: Físicas, Técnicas, Táticas, Cognitivas.
+    
+    Args:
+        category_scores (dict): Dicionário com categorias e scores
+        title (str): Título do gráfico
+        
+    Returns:
+        go.Figure: Figura Plotly pronta para render
+    """
+    categories = list(category_scores.keys())
+    values = list(category_scores.values())
+    
+    # Cores para as categorias
+    color_map = {
+        "Físicas": "rgba(220, 53, 69, 0.65)",  # Vermelho
+        "Técnicas": "rgba(23, 162, 184, 0.65)",  # Ciano
+        "Táticas": "rgba(0, 123, 255, 0.65)",  # Azul
+        "Cognitivas": "rgba(253, 126, 20, 0.65)"  # Laranja
+    }
+    
+    colors_list = [color_map.get(cat, "rgba(100, 100, 100, 0.65)") for cat in categories]
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatterpolar(
+        r=values,
+        theta=categories,
+        fill='toself',
+        name=title,
+        fillcolor=colors_list[0] if len(colors_list) > 0 else "rgba(100, 100, 100, 0.65)",
+        line=dict(color=colors_list[0].replace(', 0.65)', ', 1)') if len(colors_list) > 0 else "rgb(100, 100, 100)", width=2),
+        hovertemplate="<b>%{theta}</b><br>Pontuação: %{r:.1f}<extra></extra>"
+    ))
+    
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100],
+                tickfont=dict(size=12),
+                gridcolor="#E6E6E6",
+                showline=True,
+                linewidth=1,
+                linecolor="#999"
+            ),
+            angularaxis=dict(
+                tickfont=dict(size=13, color="#333"),
+                linecolor="#333",
+                linewidth=2
+            ),
+            bgcolor="rgba(240, 240, 240, 0.3)"
+        ),
+        title=dict(text=title, font=dict(size=18, color="#1f77b4"), x=0.5, xanchor="center"),
+        showlegend=False,
+        height=600,
+        width=600,
+        font=dict(size=12, family="Arial, sans-serif"),
+        margin=dict(l=50, r=50, t=80, b=50)
+    )
+    
+    return fig
+
 @st.cache_data
 def cached_create_graph(category_scores_json, position):
     """
@@ -111,12 +177,8 @@ def cached_create_graph(category_scores_json, position):
         io.BytesIO: Buffer com imagem PNG do gráfico
     """
     category_scores = json.loads(category_scores_json)
-    return criar_grafico_radar_matplotlib(
-        category_scores=category_scores,
-        position=position,
-        figsize=(10, 8),
-        dpi=100
-    )
+    fig = criar_radar_simples(category_scores, position)
+    return fig.to_image(format="png", width=800, height=600)
 
 # --- Configuração Geral ---
 st.set_page_config(page_title="Scout Report", layout="wide")
@@ -493,41 +555,15 @@ def main():
         with st.expander("Ver notas individuais"):
             st.json(all_attributes_data)
 
-        # --- Gráfico Radar com Matplotlib ---
+        # --- Gráfico Radar com Plotly ---
         st.divider()
         st.write("### Gráfico de Avaliação")
         
-        # Criar gráfico radar com Matplotlib com CACHE para melhor performance
-        category_scores_json = json.dumps(category_scores)
-        radar_buffer = cached_create_graph(category_scores_json, position)
+        # Criar gráfico radar Plotly simples com 4 categorias
+        fig = criar_radar_simples(category_scores, f"Avaliação: {position}")
+        st.plotly_chart(fig, use_container_width=True)
         
-        # Exibir o gráfico
-        st.image(radar_buffer, caption=f"Perfil Detalhado: {name}", use_container_width=True)
-        
-        # --- Botão para baixar gráfico como JPEG ---
-        col_download, col_spacer = st.columns([1, 3])
-        with col_download:
-            if st.button("📊 Baixar Gráfico (JPEG)"):
-                try:
-                    # Converter buffer PNG para JPEG
-                    from PIL import Image as PILImage
-                    radar_buffer.seek(0)
-                    img_pil = PILImage.open(radar_buffer).convert("RGB")
-                    
-                    # Salvar como JPEG
-                    jpeg_buffer = io.BytesIO()
-                    img_pil.save(jpeg_buffer, format="JPEG", quality=95)
-                    jpeg_buffer.seek(0)
-                    
-                    st.download_button(
-                        "📥 Download JPEG",
-                        jpeg_buffer.getvalue(),
-                        f"radar_{name.replace(' ', '_')}.jpeg",
-                        "image/jpeg",
-                        key="jpeg_download"
-                    )
-                except Exception as e:
-                    st.error(f"Erro ao gerar JPEG: {e}")
+        # Botão Plotly para download incluído no gráfico interativo
 
     # --- Análise Descritiva ---
     st.divider()
